@@ -125,6 +125,9 @@ public class AnnounceDeath : Minigame
 	[Event("Player.PostOnKilled")]
 	public void OnDeath(DamageInfo last, TerrorTown.Player ply)
 	{
+		// This is a custom function, so we need to manually check IsActive! (Not strictly necessary, but good practice.)
+		if ( !IsActive) return;
+
 		TerrorTown.PopupSystem.DisplayPopup( To.Everyone, $"{ply.Owner.Name} died!" );
 	}
 }
