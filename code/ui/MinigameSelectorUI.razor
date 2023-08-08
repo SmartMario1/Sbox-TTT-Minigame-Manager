@@ -1,0 +1,339 @@
+@using Sandbox;
+@using Sandbox.UI;
+@using System.Collections.Generic;
+@using TerrorTown;
+@using System.Linq;
+@inherits Panel
+
+@namespace SM1Minigames.UI
+
+@*I know this code sucks alot, but I don't like UI dev and I ESCPECIALLY don't like UI code cleanup :(*@
+
+<style>
+    .top-bar {
+        width: 100%;
+        min-height: 6vh;
+        display: flex;         
+        justify-content: space-between; /* Align elements to the start and end */
+        align-items: center; /* Center elements vertically */
+        background-color: #333;
+    }
+
+    .close {
+        text-align: right;
+        font-size: 32px;
+        width: 4%;
+        height: 100%;
+        background-image: url("/ui/close.png"); /* Set the background image URL */
+        background-size: contain; /* Add this line to fit the image within the container */
+        background-repeat: no-repeat; /* Add this line to prevent repetition */
+        background-position: center; /* Add this line to center the image */
+        padding: 5px;
+        cursor: pointer;
+    }
+
+    .bg {
+        background-color: rgba(100, 100, 100, 0.65);
+        width: 75vw;
+        height: 70vh;
+        margin-left: 5vw;
+        margin-top: 15vh;
+        display: flex;          
+        flex-direction: column;
+        overflow: hidden;
+        pointer-events: all;
+    }
+    
+
+    .minigame-list {
+        overflow-y: scroll; /* Enable vertical scrolling */
+        flex-direction: column; /* Ensure list items are displayed vertically */
+        width: 25%;
+        min-height: 100%;
+        max-height: 70vh;
+        flex-shrink: 0;
+    }
+
+    .hello {
+        font-size: 32px;
+        color: white;
+        text-shadow: 2px 2px 10px black;
+        min-height: 62px;
+    }
+
+    .button {
+        background-color: rgba(50, 150, 50, 0.9);
+        color: white;
+        padding: 10px;
+        text-align: center;
+        cursor: pointer;
+        border-radius: 4px;
+        min-height: 62px;
+        max-height: 102px;
+        text-overflow: ellipsis;
+        min-width: 100%;
+        flex-shrink: 0;
+    }
+
+    .button:hover {
+        background-color: #4CAF50;
+        color: white;
+    }
+
+    .disablebutton {
+        background-color: rgba(150, 50, 50, 0.9);
+        color: white;
+        padding: 10px;
+        text-align: center;
+        border-radius: 4px;
+        cursor: pointer;
+        min-height: 62px;
+        max-height: 102px;
+        text-overflow: ellipsis;
+        width: 100%;
+        flex-shrink: 0;
+    }
+
+    .togglebutton {
+        background-color: rgba(50, 150, 50, 0.9);
+        border: none;
+        color: white;
+        padding: 10px;
+        margin: 10px;
+        cursor: pointer;
+        border-radius: 4px;
+        min-height: 52px;
+        width: 20%;
+        align-items: center
+    }
+
+    .togglebutton:hover {
+        background-color: #4CAF50;
+        color: white;
+    }
+
+    .disablebutton:hover {
+        background-color: darkred;
+        color: white;
+    }
+
+    .close-image {
+        max-width: 100%;
+        max-height: 100%;
+    }
+
+    .top-link-container {
+        display: flex;
+    }
+
+    .top-link {
+        margin-right: 10px;
+        text-align: center;
+        padding: 14px 16px;
+        font-size: 32px;
+        cursor: pointer;
+        color: white;
+    }
+
+    .description-box {
+        background-color: #444;
+        min-height: 70%;
+        max-height: 70%;
+        width: 100%;
+        overflow-y: scroll;
+        padding: 5px;
+        margin-top: 10px;
+    }
+
+    .top-link:last-child {
+        margin-right: 1px;
+    }
+
+    .active {
+        background-color: #4CAF50;
+    }
+
+    .title{
+        min-height: 6vh;
+        font-size: 5vh;
+        text-overflow: ellipsis;
+    }
+
+    .inputfield
+    {
+        background-color: #333;
+        margin: 10px;
+    }
+</style>
+
+<root>
+    <div class="bg">
+        <div class="top-bar">
+            <div class="top-link-container">
+                <div class="@(activeTab == "Minigames" ? "active" : "") top-link" onmousedown=@(() => SetActiveTab("Minigames"))>
+                    Minigames
+                </div>
+                <div class="@(activeTab == "Settings" ? "active" : "") top-link" onmousedown=@(() => SetActiveTab("Settings"))>
+                    Settings
+                </div>
+            </div>
+            <div class="close" onmousedown=@ToggleUI>
+            </div>
+        </div>
+        @if(activeTab == "Settings")
+        {
+            <div style="background-color: #333; padding: 10px; margin: 10px;" class="hello">
+                All miscellaneous settings are here.
+            </div>
+            <TextEntry class="hello inputfield" Text="@MinigameManager.MinigameChance.ToString("0.00")" Prefix="Minigame chance per round:" Numeric=@true MaxValue=@(1f) MinValue=@(0f) @ref="TextField" @onsubmit=@Submit />
+            return;
+        }
+        <div style="background-color: #333; padding: 10px; margin: 10px;" class="hello">
+                All registered minigames. Click on a minigame to toggle it enabled or disabled.
+            </div>
+        <div>
+            <div class="minigame-list" style="margin-left:4px; margin-right: 4px">
+                @{
+                    var player = Game.LocalClient.Pawn as TerrorTown.Player;
+                    // Check for permissions
+                    if (player.UserData.PermissionLevel == PermissionLevel.Moderator ||
+                    player.UserData.PermissionLevel == PermissionLevel.Admin ||
+                    player.UserData.PermissionLevel == PermissionLevel.SuperAdmin ||
+                    Game.LocalClient.IsListenServerHost)
+                    {
+                        @foreach (var game in AllMinigames)
+                        {
+                            var minigameInfo = GetMinigameInfo(game.Name);
+
+                                <!-- Display the minigame name and show a toggle button -->
+                                @if (minigameInfo != null)
+                                {
+                                    <div class="hello @(minigameInfo.Enabled ? "button" : "disablebutton")" style="margin-top: 10px;" onmousedown=@(() => ToggleInfoPanel(minigameInfo))>
+                                        @minigameInfo.Name
+                                    </div>
+                                }
+                        }
+
+                    }
+                    else
+                    {
+                        Log.Error("You are not a moderator or above on this server!");
+                        ToggleUI();
+                    }
+                }
+            </div>
+
+            <!-- Panel to show minigame details and toggle button -->
+            <div style="background-color: #333; padding: 10px; flex-direction:column; width: 100%; align-items: center; margin-bottom: 5px; margin-right: 10px" class="hello">
+                @if (ActiveMinigame != null)
+                {
+                    <h3 class="title">@ActiveMinigame.Name</h3>
+                    <div class="description-box">
+                        <p>@ActiveMinigame.Description</p>
+                    </div>
+                    <div style="align-items: center;" class="togglebutton" onmousedown=@(() => ToggleMinigame())>
+                        @(ActiveMinigame.Enabled ? "Disable" : "Enable")
+                    </div>
+                }
+            </div>
+
+        </div>
+    </div>
+</root>
+
+@code
+{
+    private List<MinigameInfo> minigameInfos = new List<MinigameInfo>();
+
+    private class MinigameInfo
+    {
+        public string Name { get; set; }
+        public string Description { get; set; }
+        public bool Enabled { get; set; }
+    }
+    private List<Minigame> EnabledMinigames;
+
+    private List<Minigame> AllMinigames;
+
+    private MinigameInfo ActiveMinigame = null;
+
+    private string activeTab = "Minigames";
+
+    private TextEntry TextField { get; set; }
+
+    private void SetActiveTab(string name)
+    {
+        activeTab = name;
+    }
+
+    private void Submit()
+    {
+        ConsoleSystem.Run("minigame_set_chance", TextField.Value);
+    }
+
+    private void DisableMinigame(string name)
+    {
+        ConsoleSystem.Run("minigame_disable_minigame", name);
+        // This code looks weird, but is preventing a bug of the updates lagging behind by one update.
+        BuildGameinfos();
+        minigameInfos.Find((x) => x.Name == name).Enabled = false;
+        ActiveMinigame.Enabled = false;
+    }
+
+    private void EnableMinigame(string name)
+    {
+        ConsoleSystem.Run("minigame_enable_minigame", name);
+
+    }
+
+    private void ToggleMinigame()
+    {
+        if(ActiveMinigame.Enabled)
+        {
+            ConsoleSystem.Run("minigame_disable_minigame", ActiveMinigame.Name);
+        }
+        else
+        {
+            ConsoleSystem.Run("minigame_enable_minigame", ActiveMinigame.Name);
+        }
+        // This code looks weird, but is preventing a bug of the updates lagging behind by one update.
+        BuildGameinfos();
+        var game = minigameInfos.Find((x) => x.Name == ActiveMinigame.Name);
+        game.Enabled = !game.Enabled;
+        ActiveMinigame.Enabled = !ActiveMinigame.Enabled;
+    }
+
+    private MinigameInfo GetMinigameInfo(string name)
+    {
+        return minigameInfos.FirstOrDefault(info => info.Name == name);
+    }
+
+    private void ToggleInfoPanel(MinigameInfo minigameInfo)
+    {
+        ActiveMinigame = minigameInfo;
+    }
+
+    public void SetLocalGameList(List<Minigame> enabled, List<Minigame> all)
+    {
+        EnabledMinigames = enabled;
+        AllMinigames = all.OrderBy(x => x.Name).ToList();
+
+        BuildGameinfos();
+    }
+
+    private void BuildGameinfos()
+    {
+        minigameInfos = AllMinigames.Select(game => new MinigameInfo
+            {
+                Name = game.Name,
+                Description = game.Description, // Replace with actual description
+                Enabled = EnabledMinigames.Exists(x => x.Name.ToLower() == game.Name.ToLower())
+            }).ToList();
+    }
+
+    private void ToggleUI()
+    {
+        ConsoleSystem.Run("minigame_save_config");
+        ConsoleSystem.Run("minigame_toggle_ui");
+    }
+}

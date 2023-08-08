@@ -1,0 +1,27 @@
+{
+  "Title": "Minigame Manager for TTT",
+  "Type": "addon",
+  "Org": "smartmario",
+  "Ident": "ttt_sm1minigames",
+  "Tags": "ttt minigame",
+  "Schema": 1,
+  "HasAssets": true,
+  "AssetsPath": "",
+  "Resources": null,
+  "MenuResources": null,
+  "HasCode": true,
+  "CodePath": "/code/",
+  "PackageReferences": [
+    "thieves.terrortown"
+  ],
+  "EditorReferences": null,
+  "Metadata": {
+    "CsProjName": "",
+    "PrimaryAsset": "",
+    "PhysicsMins": "-1,-1,-1",
+    "PhysicsMaxs": "1,1,1",
+    "RenderMins": "-1,-1,-1",
+    "RenderMaxs": "-1,-1,-1",
+    "ParentPackage": "thieves.terrortown"
+  }
+}
