@@ -99,23 +99,26 @@ namespace SM1Minigames
 		{
 			RegisteredMinigames.Add( game );
 			// This part of the code loads the previous config if it exists.
-			if ( FileSystem.Data.FileExists( "minigame_config.json" ) )
+			if ( Game.IsServer )
 			{
-				var config = FileSystem.Data.ReadJson<Dictionary<string, bool>>( "minigame_config.json" );
-				if ( !config.ContainsKey(game.Name) )
+				if ( FileSystem.Data.FileExists( "minigame_config.json" ) )
+				{
+					var config = FileSystem.Data.ReadJson<Dictionary<string, bool>>( "minigame_config.json" );
+					if ( !config.ContainsKey( game.Name ) )
+					{
+						EnabledMinigames.Add( game );
+						return;
+					}
+					if ( config[game.Name] )
+					{
+						EnabledMinigames.Add( game );
+						return;
+					}
+				}
+				else
 				{
 					EnabledMinigames.Add( game );
-					return;
 				}
-				if ( config[game.Name] ) 
-				{
-					EnabledMinigames.Add( game );
-					return;
-				}
-			}
-			else
-			{
-				EnabledMinigames.Add( game );
 			}
 		}
 
@@ -302,7 +305,7 @@ namespace SM1Minigames
 		[ClientRpc]
 		public static void FullClientSync(string MGJson, float chance, bool final_round)
 		{
-			var minigdict = FileSystem.Data.ReadJson<Dictionary<string, bool>>( "minigame_config.json" );
+			var minigdict = Json.Deserialize<Dictionary<string, bool>>( MGJson );
 			RegisteredMinigames = RegisteredMinigames.Where(x => minigdict.Keys.Contains(x.Name)).ToList();
 			EnabledMinigames = RegisteredMinigames.Where( x => minigdict.Keys.Contains( x.Name ) && minigdict[x.Name] ).ToList();
 			MinigameChance = chance;
@@ -316,6 +319,12 @@ namespace SM1Minigames
 			if ( !ValidateUser( ConsoleSystem.Caller.Pawn as TerrorTown.Player ) ) { Log.Error( "Insufficient permissions" ); return; }
 			Game.AssertServer();
 
+			Event.Run( "minigame_full_sync", SM1Utils.Lists2Json( RegisteredMinigames, EnabledMinigames ), MinigameChance, AlwaysFinalRound );
+		}
+
+		[GameEvent.Server.ClientJoined]
+		public static void OnJoin(ClientJoinedEvent _e)
+		{
 			Event.Run( "minigame_full_sync", SM1Utils.Lists2Json( RegisteredMinigames, EnabledMinigames ), MinigameChance, AlwaysFinalRound );
 		}
 
