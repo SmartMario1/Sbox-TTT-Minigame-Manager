@@ -71,7 +71,7 @@
         min-height: 62px;
         max-height: 102px;
         text-overflow: ellipsis;
-        min-width: 100%;
+        width: 100%;
         flex-shrink: 0;
     }
 
@@ -186,6 +186,9 @@
                 All miscellaneous settings are here.
             </div>
             <TextEntry class="hello inputfield" Text="@MinigameManager.MinigameChance.ToString("0.00")" Prefix="Minigame chance per round:" Numeric=@true MaxValue=@(1f) MinValue=@(0f) @ref="TextField" @onsubmit=@Submit />
+            <div class="hello" style="background-color: #333; margin: 10px; padding: 10px;">
+                Final round on a map is always a minigame: <div class="hello @(MinigameManager.AlwaysFinalRound ? "button" : "disablebutton")" style="width: 30%; margin-left: 10%;" onmousedown=@Toggle> @(MinigameManager.AlwaysFinalRound ? "Active" : "Inactive") </div>
+            </div>
             return;
         }
         <div style="background-color: #333; padding: 10px; margin: 10px;" class="hello">
@@ -195,30 +198,17 @@
             <div class="minigame-list" style="margin-left:4px; margin-right: 4px">
                 @{
                     var player = Game.LocalClient.Pawn as TerrorTown.Player;
-                    // Check for permissions
-                    if (player.UserData.PermissionLevel == PermissionLevel.Moderator ||
-                    player.UserData.PermissionLevel == PermissionLevel.Admin ||
-                    player.UserData.PermissionLevel == PermissionLevel.SuperAdmin ||
-                    Game.LocalClient.IsListenServerHost)
+                    @foreach (var game in AllMinigames)
                     {
-                        @foreach (var game in AllMinigames)
-                        {
-                            var minigameInfo = GetMinigameInfo(game.Name);
+                        var minigameInfo = GetMinigameInfo(game.Name);
 
-                                <!-- Display the minigame name and show a toggle button -->
-                                @if (minigameInfo != null)
-                                {
-                                    <div class="hello @(minigameInfo.Enabled ? "button" : "disablebutton")" style="margin-top: 10px;" onmousedown=@(() => ToggleInfoPanel(minigameInfo))>
-                                        @minigameInfo.Name
-                                    </div>
-                                }
-                        }
-
-                    }
-                    else
-                    {
-                        Log.Error("You are not a moderator or above on this server!");
-                        ToggleUI();
+                            <!-- Display the minigame name and show a toggle button -->
+                            @if (minigameInfo != null)
+                            {
+                                <div class="hello @(minigameInfo.Enabled ? "button" : "disablebutton")" style="margin-top: 10px;" onmousedown=@(() => ToggleInfoPanel(minigameInfo))>
+                                    @minigameInfo.Name
+                                </div>
+                            }
                     }
                 }
             </div>
@@ -264,6 +254,12 @@
     private void SetActiveTab(string name)
     {
         activeTab = name;
+    }
+
+    private void Toggle()
+    {
+        MinigameManager.AlwaysFinalRound = !MinigameManager.AlwaysFinalRound;
+        ConsoleSystem.Run("minigame_always_final_round", MinigameManager.AlwaysFinalRound);
     }
 
     private void Submit()

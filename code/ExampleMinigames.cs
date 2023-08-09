@@ -90,10 +90,9 @@ public class Explode : Minigame
 			{
 				lastexplosion = 0;
 				// This selects a random player
-				bool foundAlive = false;
 				var randomindex = Game.Random.Int( Game.Clients.Count - 1 );
 				var randomply = Game.Clients.ElementAt( randomindex ).Pawn as TerrorTown.Player;
-				foundAlive = randomply.LifeState == LifeState.Alive;
+				bool foundAlive = randomply.LifeState == LifeState.Alive;
 
 				// This loop makes sure we only explode players who are alive.
 				while ( !foundAlive )

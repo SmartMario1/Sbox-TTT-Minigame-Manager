@@ -11,7 +11,7 @@ namespace SM1Minigames
 	/// <summary>
 	/// Minigames should be of this class. Please ensure all functionality of the minigame is only used if Active is true.
 	/// </summary>
-	public abstract class Minigame
+	public abstract class Minigame : BaseNetworkable
 	{
 
 		/// <summary>
@@ -76,6 +76,28 @@ namespace SM1Minigames
 		}
 	}
 
+	///// <summary>
+	///// This class lets us send all paramaters for a sync in 1 event.
+	///// </summary>
+	//public class MGSettings
+	//{
+	//	public List<Minigame> RegisteredMinigames { get; set; }
+
+	//	public List<Minigame> EnabledMinigames { get; set; }
+
+	//	public float MinigameChance { get; set; }
+
+	//	public bool AlwaysFinalRound { get; set; }
+
+	//	public MGSettings(List<Minigame> registeredMinigames, List<Minigame> enabledMinigames, float minigameChance, bool alwaysFinalRound )
+	//	{
+	//		RegisteredMinigames = registeredMinigames;
+	//		EnabledMinigames = enabledMinigames;
+	//		MinigameChance = minigameChance;
+	//		AlwaysFinalRound = alwaysFinalRound;
+	//	}
+	//}	
+
 	/// <summary>
 	/// This class implements all logic partaining to minigames.
 	/// </summary>
@@ -91,6 +113,9 @@ namespace SM1Minigames
 
 		[ConVar.Replicated( "minigame_chance_per_round" )]
 		public static float MinigameChance { get; set; }
+
+		[ConVar.Replicated("minigame_final_round")]
+		public static bool AlwaysFinalRound { get; set; }
 
 		public static void RegisterMinigame( Minigame game )
 		{
@@ -142,8 +167,15 @@ namespace SM1Minigames
 			if ( !ValidateUser( ConsoleSystem.Caller.Pawn as TerrorTown.Player ) ) { Log.Error( "Insufficient permissions" ); return; }
 
 			float realchance = Math.Clamp(chance, 0.0f, 1.0f );
-			FileSystem.Data.WriteAllText( "minigame_chance.txt", realchance.ToString() );
 			MinigameChance = realchance;
+		}
+
+		[ConCmd.Server( "minigame_always_final_round" )]
+		public static void SetAlwaysFinalRound( bool option )
+		{
+			if ( !ValidateUser( ConsoleSystem.Caller.Pawn as TerrorTown.Player ) ) { Log.Error( "Insufficient permissions" ); return; }
+
+			AlwaysFinalRound = option;
 		}
 
 		// To check permissions of moderator commands.
@@ -192,7 +224,7 @@ namespace SM1Minigames
 				return;
 			}
 			EnabledMinigames.RemoveAt( index );
-			SetMinigameDisbledClient( name );
+			SetMinigameDisabledClient( name );
 		}
 
 		// These two functions try to ensure that the minigame list is synced between server and client.
@@ -203,7 +235,7 @@ namespace SM1Minigames
 			EnabledMinigames.Add( game );
 		}
 		[ClientRpc]
-		public static void SetMinigameDisbledClient( string name )
+		public static void SetMinigameDisabledClient( string name )
 		{
 			var index = EnabledMinigames.FindIndex( x => x.Name.ToLower() == name.ToLower() );
 			EnabledMinigames.RemoveAt( index );
@@ -214,7 +246,7 @@ namespace SM1Minigames
 		public static void OnRoundStart()
 		{
 			var game_chance = Math.Clamp( MinigameChance, 0f, 1f );
-			if ( Game.Random.Float() <= game_chance )
+			if ( Game.Random.Float() <= game_chance || (AlwaysFinalRound && Entity.All.OfType<MyGame>().First().RoundNumber == MyGame.RoundCount) )
 			{
 				var chosen_minigame = Game.Random.Int(EnabledMinigames.Count - 1);
 				Log.Info( "Minigame time! Initialising " + EnabledMinigames[chosen_minigame].Name );
@@ -241,7 +273,8 @@ namespace SM1Minigames
 		//[ConCmd.Client( "minigame_testing" )]
 		//public static void test()
 		//{
-		//	Log.Info( "chance" + MinigameChance );
+		//	Log.Info( TerrorTown.MyGame.RoundCount );
+		//	Log.Info( Entity.All.OfType<MyGame>().First().RoundNumber );
 		//}
 
 		[ConCmd.Server("minigame_save_config")]
@@ -249,6 +282,9 @@ namespace SM1Minigames
 		{
 			if ( !ValidateUser( ConsoleSystem.Caller.Pawn as TerrorTown.Player ) ) { Log.Error( "Insufficient permissions" ); return; }
 			FileSystem.Data.WriteAllText( "minigame_config.json", SM1Utils.Lists2Json( RegisteredMinigames, EnabledMinigames ));
+			FileSystem.Data.WriteAllText( "minigame_chance.txt", MinigameChance.ToString() );
+			FileSystem.Data.WriteAllText( "minigame_final_round.txt", AlwaysFinalRound.ToString() );
+			//Event.Run( "minigame_full_sync", new MGSettings( RegisteredMinigames, EnabledMinigames, MinigameChance, AlwaysFinalRound ) );
 		}
 
 		[Event("minigame_announcement")]
@@ -284,6 +320,25 @@ namespace SM1Minigames
 			}
 		}
 
+		//[Event( "minigame_full_sync" )]
+		//[ClientRpc]
+		//public static void FullClientSync(MGSettings settings)
+		//{
+		//	RegisteredMinigames = settings.RegisteredMinigames;
+		//	EnabledMinigames = settings.EnabledMinigames;
+		//	MinigameChance = settings.MinigameChance;
+		//	AlwaysFinalRound = settings.AlwaysFinalRound;
+		//}
+
+		//// This function triggers a manual sync in case something weird is happening.
+		//[ConCmd.Server("minigame_manual_sync")]
+		//public static void ManualSync()
+		//{
+		//	if ( !ValidateUser( ConsoleSystem.Caller.Pawn as TerrorTown.Player ) ) { Log.Error( "Insufficient permissions" ); return; }
+		//	Game.AssertServer();
+
+		//	Event.Run( "minigame_full_sync",  new MGSettings(RegisteredMinigames, EnabledMinigames, MinigameChance, AlwaysFinalRound));
+		//}
 
 		// These functions implement the chat commands !minigame and !minigames
 		[TerrorTown.ChatCmd( "minigame", PermissionLevel.Moderator )]
@@ -319,15 +374,28 @@ namespace SM1Minigames
 				}
 			}
 
-			if (FileSystem.Data.FileExists( "minigame_chance.txt" ) )
-			{
-				float chance = float.Parse(FileSystem.Data.ReadAllText( "minigame_chance.txt" ));
-				MinigameChance = chance;
-			}
-			else
-			{
-				MinigameChance = 0.25f;
-			}
+			//if ( Game.IsServer )
+			//{
+				if ( FileSystem.Data.FileExists( "minigame_chance.txt" ) )
+				{
+					float chance = float.Parse( FileSystem.Data.ReadAllText( "minigame_chance.txt" ) );
+					MinigameChance = chance;
+				}
+				else
+				{
+					MinigameChance = 0.25f;
+				}
+
+				if ( FileSystem.Data.FileExists( "minigame_final_round.txt" ) )
+				{
+					AlwaysFinalRound = bool.Parse( FileSystem.Data.ReadAllText( "minigame_final_round.txt" ) );
+				}
+				else
+				{
+					AlwaysFinalRound = false;
+				}
+				//Event.Run( "minigame_full_sync", new MGSettings( RegisteredMinigames, EnabledMinigames, MinigameChance, AlwaysFinalRound ) );
+			//}
 		}
 	}
 }
