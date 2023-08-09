@@ -76,36 +76,14 @@ namespace SM1Minigames
 		}
 	}
 
-	///// <summary>
-	///// This class lets us send all paramaters for a sync in 1 event.
-	///// </summary>
-	//public class MGSettings
-	//{
-	//	public List<Minigame> RegisteredMinigames { get; set; }
-
-	//	public List<Minigame> EnabledMinigames { get; set; }
-
-	//	public float MinigameChance { get; set; }
-
-	//	public bool AlwaysFinalRound { get; set; }
-
-	//	public MGSettings(List<Minigame> registeredMinigames, List<Minigame> enabledMinigames, float minigameChance, bool alwaysFinalRound )
-	//	{
-	//		RegisteredMinigames = registeredMinigames;
-	//		EnabledMinigames = enabledMinigames;
-	//		MinigameChance = minigameChance;
-	//		AlwaysFinalRound = alwaysFinalRound;
-	//	}
-	//}	
-
 	/// <summary>
 	/// This class implements all logic partaining to minigames.
 	/// </summary>
 	public static partial class MinigameManager
 	{
-		public static List<Minigame> RegisteredMinigames { get; private set; } = new List<Minigame>();
+		public static IList<Minigame> RegisteredMinigames { get; private set; } = new List<Minigame>();
 
-		public static List<Minigame> EnabledMinigames { get; private set; } = new List<Minigame>();
+		public static IList<Minigame> EnabledMinigames { get; private set; } = new List<Minigame>();
 
 		private static Minigame ActiveMinigame { get; set; } = null;
 
@@ -196,14 +174,14 @@ namespace SM1Minigames
 		public static void SetMinigameEnabled( string name )
 		{
 			if ( !ValidateUser( ConsoleSystem.Caller.Pawn as TerrorTown.Player ) ) { Log.Error( "Insufficient permissions" ); return; }
-			var game = RegisteredMinigames.Find( x => x.Name.ToLower() == name.ToLower() );
+			var game = RegisteredMinigames.FirstOrDefault( x => x.Name.ToLower() == name.ToLower() );
 			if ( game == null )
 			{
 				Log.Info( "Couldn't find game " + name );
 				return;
 			}
 
-			var m_game = EnabledMinigames.Find( x => x.Name.ToLower() == name.ToLower() );
+			var m_game = EnabledMinigames.FirstOrDefault( x => x.Name.ToLower() == name.ToLower() );
 			if ( m_game != null )
 			{
 				Log.Info( "Minigame was already enabled" );
@@ -217,13 +195,13 @@ namespace SM1Minigames
 		public static void SetMinigameDisabled( string name )
 		{
 			if ( !ValidateUser( ConsoleSystem.Caller.Pawn as TerrorTown.Player ) ) { Log.Error( "Insufficient permissions" ); return; }
-			var index = EnabledMinigames.FindIndex( x => x.Name.ToLower() == name.ToLower() );
-			if ( index == -1 )
+			var game = EnabledMinigames.FirstOrDefault( x => x.Name.ToLower() == name.ToLower() );
+			if ( game == null )
 			{
 				Log.Info( "Couldn't find enabled game " + name );
 				return;
 			}
-			EnabledMinigames.RemoveAt( index );
+			EnabledMinigames.Remove( game );
 			SetMinigameDisabledClient( name );
 		}
 
@@ -231,14 +209,14 @@ namespace SM1Minigames
 		[ClientRpc]
 		public static void SetMinigameEnabledClient( string name )
 		{
-			var game = RegisteredMinigames.Find( x => x.Name.ToLower() == name.ToLower() );
+			var game = RegisteredMinigames.FirstOrDefault( x => x.Name.ToLower() == name.ToLower() );
 			EnabledMinigames.Add( game );
 		}
 		[ClientRpc]
 		public static void SetMinigameDisabledClient( string name )
 		{
-			var index = EnabledMinigames.FindIndex( x => x.Name.ToLower() == name.ToLower() );
-			EnabledMinigames.RemoveAt( index );
+			var game = EnabledMinigames.FirstOrDefault( x => x.Name.ToLower() == name.ToLower() );
+			EnabledMinigames.Remove( game );
 		}
 
 
@@ -284,14 +262,14 @@ namespace SM1Minigames
 			FileSystem.Data.WriteAllText( "minigame_config.json", SM1Utils.Lists2Json( RegisteredMinigames, EnabledMinigames ));
 			FileSystem.Data.WriteAllText( "minigame_chance.txt", MinigameChance.ToString() );
 			FileSystem.Data.WriteAllText( "minigame_final_round.txt", AlwaysFinalRound.ToString() );
-			//Event.Run( "minigame_full_sync", new MGSettings( RegisteredMinigames, EnabledMinigames, MinigameChance, AlwaysFinalRound ) );
+			Event.Run( "minigame_full_sync", SM1Utils.Lists2Json( RegisteredMinigames, EnabledMinigames ), MinigameChance, AlwaysFinalRound );
 		}
 
 		[Event("minigame_announcement")]
 		[ClientRpc]
 		public static void AnnounceMinigame(string gamename)
 		{
-			var game = RegisteredMinigames.Find( x => x.Name.ToLower() == gamename.ToLower() );
+			var game = RegisteredMinigames.FirstOrDefault( x => x.Name.ToLower() == gamename.ToLower() );
 			if (game == null )
 			{
 				Log.Error( "Server chose a minigame that we don't have!" );
@@ -320,25 +298,26 @@ namespace SM1Minigames
 			}
 		}
 
-		//[Event( "minigame_full_sync" )]
-		//[ClientRpc]
-		//public static void FullClientSync(MGSettings settings)
-		//{
-		//	RegisteredMinigames = settings.RegisteredMinigames;
-		//	EnabledMinigames = settings.EnabledMinigames;
-		//	MinigameChance = settings.MinigameChance;
-		//	AlwaysFinalRound = settings.AlwaysFinalRound;
-		//}
+		[Event( "minigame_full_sync" )]
+		[ClientRpc]
+		public static void FullClientSync(string MGJson, float chance, bool final_round)
+		{
+			var minigdict = FileSystem.Data.ReadJson<Dictionary<string, bool>>( "minigame_config.json" );
+			RegisteredMinigames = RegisteredMinigames.Where(x => minigdict.Keys.Contains(x.Name)).ToList();
+			EnabledMinigames = RegisteredMinigames.Where( x => minigdict.Keys.Contains( x.Name ) && minigdict[x.Name] ).ToList();
+			MinigameChance = chance;
+			AlwaysFinalRound = final_round;
+		}
 
-		//// This function triggers a manual sync in case something weird is happening.
-		//[ConCmd.Server("minigame_manual_sync")]
-		//public static void ManualSync()
-		//{
-		//	if ( !ValidateUser( ConsoleSystem.Caller.Pawn as TerrorTown.Player ) ) { Log.Error( "Insufficient permissions" ); return; }
-		//	Game.AssertServer();
+		// This function triggers a manual sync in case something weird is happening.
+		[ConCmd.Server("minigame_manual_sync")]
+		public static void ManualSync()
+		{
+			if ( !ValidateUser( ConsoleSystem.Caller.Pawn as TerrorTown.Player ) ) { Log.Error( "Insufficient permissions" ); return; }
+			Game.AssertServer();
 
-		//	Event.Run( "minigame_full_sync",  new MGSettings(RegisteredMinigames, EnabledMinigames, MinigameChance, AlwaysFinalRound));
-		//}
+			Event.Run( "minigame_full_sync", SM1Utils.Lists2Json( RegisteredMinigames, EnabledMinigames ), MinigameChance, AlwaysFinalRound );
+		}
 
 		// These functions implement the chat commands !minigame and !minigames
 		[TerrorTown.ChatCmd( "minigame", PermissionLevel.Moderator )]
@@ -374,8 +353,8 @@ namespace SM1Minigames
 				}
 			}
 
-			//if ( Game.IsServer )
-			//{
+			if ( Game.IsServer )
+			{
 				if ( FileSystem.Data.FileExists( "minigame_chance.txt" ) )
 				{
 					float chance = float.Parse( FileSystem.Data.ReadAllText( "minigame_chance.txt" ) );
@@ -394,8 +373,8 @@ namespace SM1Minigames
 				{
 					AlwaysFinalRound = false;
 				}
-				//Event.Run( "minigame_full_sync", new MGSettings( RegisteredMinigames, EnabledMinigames, MinigameChance, AlwaysFinalRound ) );
-			//}
+				Event.Run( "minigame_full_sync", SM1Utils.Lists2Json(RegisteredMinigames, EnabledMinigames), MinigameChance, AlwaysFinalRound );
+			}
 		}
 	}
 }

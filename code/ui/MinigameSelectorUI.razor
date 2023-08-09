@@ -241,9 +241,9 @@
         public string Description { get; set; }
         public bool Enabled { get; set; }
     }
-    private List<Minigame> EnabledMinigames;
+    private IList<Minigame> EnabledMinigames;
 
-    private List<Minigame> AllMinigames;
+    private IList<Minigame> AllMinigames;
 
     private MinigameInfo ActiveMinigame = null;
 
@@ -309,7 +309,7 @@
         ActiveMinigame = minigameInfo;
     }
 
-    public void SetLocalGameList(List<Minigame> enabled, List<Minigame> all)
+    public void SetLocalGameList(IList<Minigame> enabled, IList<Minigame> all)
     {
         EnabledMinigames = enabled;
         AllMinigames = all.OrderBy(x => x.Name).ToList();
@@ -323,7 +323,7 @@
             {
                 Name = game.Name,
                 Description = game.Description, // Replace with actual description
-                Enabled = EnabledMinigames.Exists(x => x.Name.ToLower() == game.Name.ToLower())
+                Enabled = EnabledMinigames.Any(x => x.Name.ToLower() == game.Name.ToLower())
             }).ToList();
     }
 

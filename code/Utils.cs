@@ -12,7 +12,7 @@ using TerrorTown;
 /// </summary>
 public static class SM1Utils
 {
-	public static string Lists2Json( List<Minigame> allgames, List<Minigame> enabledgames )
+	public static string Lists2Json( IList<Minigame> allgames, IList<Minigame> enabledgames )
 	{
 		// Merge the two lists to get a combined list of all Minigames and all enabled Minigames
 		var allMinigames = allgames.Concat( enabledgames );
