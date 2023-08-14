@@ -227,7 +227,7 @@ namespace SM1Minigames
 		public static void OnRoundStart()
 		{
 			var game_chance = Math.Clamp( MinigameChance, 0f, 1f );
-			if ( Game.Random.Float() <= game_chance || (AlwaysFinalRound && Entity.All.OfType<MyGame>().First().RoundNumber == MyGame.RoundCount) )
+			if ( Game.Random.Float() <= game_chance || (AlwaysFinalRound && MyGame.Current.RoundNumber == MyGame.RoundCount) )
 			{
 				var chosen_minigame = Game.Random.Int(EnabledMinigames.Count - 1);
 				Log.Info( "Minigame time! Initialising " + EnabledMinigames[chosen_minigame].Name );
