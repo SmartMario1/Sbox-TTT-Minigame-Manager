@@ -7,7 +7,7 @@
   "Schema": 1,
   "HasAssets": true,
   "AssetsPath": "",
-  "Resources": null,
+  "Resources": "\nui/close.png\nsounds/*\ntextures/fridge_material.tga\ntextures/fridge_textureAO.tga\nmodels/fridge.dmx",
   "MenuResources": null,
   "HasCode": true,
   "CodePath": "/code/",

@@ -1,0 +1,173 @@
+@using Sandbox;
+@using Sandbox.UI;
+@using System.Collections.Generic;
+@using TerrorTown;
+@using System.Linq;
+@inherits Panel
+
+<style>
+    .bgbg{
+        width: 100vw;
+        height: 100vh;
+        pointer-events: all;
+    }
+
+    .title{
+        font-size: 72px;
+        justify-content: center;
+        align-items: center;
+        text-shadow: 2px 2px 4px darkgray;
+        margin: 10px;
+    }
+
+    .bg {
+        background-color: rgba(100, 100, 100, 0.65);
+        width: 75vw;
+        height: 70vh;
+        margin-left: 5vw;
+        margin-top: 15vh;
+        display: flex;
+        pointer-events: all;
+        flex-direction: column; /* Ensure list items are displayed vertically */
+        }
+
+    .playerlist{
+        width: 100%;
+        height: 100%;
+        overflow-y: scroll; /* Enable vertical scrolling */
+        flex-direction: column; /* Ensure list items are displayed vertically */
+    }
+
+    .button {
+        background-color: rgba(200, 200, 200, 0.65);
+        max-width: 100%;
+        min-height: 62px;
+        padding: 10px;
+        margin: 10px;
+        font-size: 32px;
+        border: 2px #333;
+        cursor: pointer;
+        border-radius: 4px;
+        text-shadow: 2px 2px 4px darkgray;
+    }
+    
+    .button:hover {
+            background-color: rgba(255, 255, 255, 0.65);
+    }
+
+    .hello
+    {
+        max-width: 100%;
+        padding: 10px;
+        margin: 10px;
+        min-height: 62px;
+        font-size: 32px;
+        border-radius: 4px;
+        text-shadow: 2px 2px 4px darkgray;
+        background-color: rgba(200, 200, 200, 0.65);
+        align-items: center;
+        justify-content: center;
+        border: 2px #333;
+    }
+
+    .progressbarbg
+    {
+        border: 3px #333;
+        font-size: 72px;
+        border-radius: 20px;
+        margin: 10px;
+        max-width: 100%;
+        max-height: 10%;
+        min-height: 10%;
+        overflow: hidden;
+    }
+
+    .progress
+    {
+        min-height: 100%;
+        width: 100%;
+        background-color: #4CAF50;
+    }
+
+</style>
+
+<root>
+    @*This div stops people shooting while voting*@
+    <div class="bgbg">
+        <div class="bg">
+            <div class="title">
+                Vote on which player to kill.
+            </div>
+            <div class="progressbarbg">
+                <div class="progress" style="width: @((vote_time - creation) / vote_time * 100)%">
+
+                </div>
+            </div>
+            <div class="playerlist">
+                @if (!voted)
+                {
+                    @foreach(var client in Game.Clients)
+                    {
+                        var ply = client.Pawn as TerrorTown.Player;
+                        if (ply.LifeState == LifeState.Alive)
+                        {
+                            <div class="button" onmousedown=@(() => CastVote(client))>
+                                @client.Name
+                            </div>
+                        }
+                    }
+                }
+                else
+                {
+                    <div class="hello">
+                        @("You voted for " + voted_name + "!")
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</root>
+
+@code
+{
+    private RealTimeSince creation { get; set; }
+
+    private int vote_time { get; set; }
+
+    private bool voted { get; set; }
+
+    private string voted_name { get; set; }
+
+    public void Init(int votetime)
+    {
+        voted = false;
+        creation = 0;
+        vote_time = votetime;
+    }
+
+    public void CastVote(IClient client)
+    {
+        if (!voted)
+        {
+            Log.Info(Game.LocalClient.Name + " voted for " + client.Name);
+            voted = true;
+            voted_name = client.Name;
+            ConsoleSystem.Run("minigame_democracy_cast_vote", client.Name);
+        }
+    }
+
+    [GameEvent.Tick.Client]
+    public void GameTick()
+    {
+        if (creation > vote_time)
+        {
+            Log.Info("We done votin");
+            this.Delete();
+        }
+    }
+
+    protected override int BuildHash()
+    {
+        return Sandbox.Time.Now.GetHashCode();
+    }
+}

@@ -104,11 +104,7 @@ namespace SM1Minigames
 				if ( FileSystem.Data.FileExists( "minigame_config.json" ) )
 				{
 					var config = FileSystem.Data.ReadJson<Dictionary<string, bool>>( "minigame_config.json" );
-					if ( !config.ContainsKey( game.Name ) )
-					{
-						EnabledMinigames.Add( game );
-						return;
-					}
+					if ( !config.ContainsKey( game.Name ) ) return;
 					if ( config[game.Name] )
 					{
 						EnabledMinigames.Add( game );
