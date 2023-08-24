@@ -196,6 +196,40 @@ namespace SM1MinigamePack1
 		}
 	}
 
+	public class Moon : Minigame
+	{
+		public override string Name { get; set; } = "Moon shoes";
+		public override string Description { get; set; } = "Gravity is lowered!";
+
+		public override void RoundStart()
+		{
+			base.RoundStart();
+			TerrorTown.WalkController.Gravity /= 3.2f ;
+		}
+		public override void RoundEnd()
+		{
+			base.RoundEnd();
+			TerrorTown.WalkController.Gravity *= 3.2f;
+		}
+	}
+
+	public class IceRink : Minigame
+	{
+		public override string Name { get; set; } = "Ice rink";
+		public override string Description { get; set; } = "The map has frozen over and everyone is on iceskates! Friction is lowered.";
+		public override void RoundStart()
+		{
+			base.RoundStart();
+			TerrorTown.WalkController.GroundFriction /= 10f;
+		}
+		public override void RoundEnd()
+		{
+			base.RoundEnd();
+			TerrorTown.WalkController.GroundFriction *= 10f;
+
+		}
+	}
+
 	// Credits for the next three minigames go to StealthNinja1O1
 	public class Hypersonic : Minigame
 	{
@@ -211,7 +245,7 @@ namespace SM1MinigamePack1
 				var pawn = client.Pawn as TerrorTown.Player;
 				if ( pawn == null ) continue;
 				var movementController = pawn.MovementController as TerrorTown.WalkController;
-				movementController.SpeedMultiplier = 2.2f;
+				if ( movementController != null )  movementController.SpeedMultiplier = 2.2f;
 			}
 		}
 
@@ -244,7 +278,7 @@ namespace SM1MinigamePack1
 				if ( pawn == null ) continue;
 				var movementController = pawn.MovementController as TerrorTown.WalkController;
 				pawn.LocalScale = 0.5f;
-				movementController.SpeedMultiplier = 1.5f;
+				if ( movementController != null ) movementController.SpeedMultiplier = 1.5f;
 			}
 		}
 
@@ -265,10 +299,6 @@ namespace SM1MinigamePack1
 
 	public class Nuke : ModelEntity
 	{
-		public Nuke()
-		{
-			Log.Info( this );
-		}
 
 		public override void Spawn()
 		{
@@ -286,7 +316,7 @@ namespace SM1MinigamePack1
 		protected override void OnPhysicsCollision( CollisionEventData eventData )
 		{
 			// If it touches anything, explode
-			var explode = new ExplosionEntity();
+			var explode = new TerrorTown.ExplosionEntity();
 			explode.Position = Position;
 			explode.Radius = 100;
 			explode.Damage = 100;

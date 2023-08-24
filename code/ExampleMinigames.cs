@@ -36,8 +36,7 @@ namespace SM1MinigamePack1
 			{
 				var ply = client.Pawn as TerrorTown.Player;
 				// Can't just add to inventory, because radar has custom functions when picked up.
-				var radar = new Radar();
-				radar.Position = ply.Position;
+				new Radar().Touch(ply);
 			}
 		}
 	}
@@ -55,8 +54,7 @@ namespace SM1MinigamePack1
 			{
 				var ply = client.Pawn as TerrorTown.Player;
 				// Can't just add to inventory, because disguiser has custom functions when picked up.
-				var disguiser = new Disguiser();
-				disguiser.Position = ply.Position;
+				new Disguiser().Touch(ply);
 			}
 		}
 	}
@@ -74,8 +72,7 @@ namespace SM1MinigamePack1
 			foreach ( IClient client in Game.Clients )
 			{
 				var ply = client.Pawn as TerrorTown.Player;
-				var disguiser = new Poltergeist();
-				disguiser.Position = ply.Position;
+				new Poltergeist().Touch(ply);
 			}
 		}
 	}
@@ -109,7 +106,7 @@ namespace SM1MinigamePack1
 					var randomply = Utils.getAlivePlayer();
 
 					// This explodes that player >:)
-					var exploder = new ExplosionEntity();
+					var exploder = new TerrorTown.ExplosionEntity();
 					exploder.Damage = 200f;
 					exploder.Position = randomply.Position;
 					exploder.Radius *= 2;

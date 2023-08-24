@@ -5,13 +5,14 @@ using Sandbox;
 using Sandbox.Internal;
 using TerrorTown;
 using SM1Minigames.UI;
+using System.Text.Json;
 
 namespace SM1Minigames
 {
 	/// <summary>
 	/// Minigames should be of this class. Please ensure all functionality of the minigame is only used if Active is true.
 	/// </summary>
-	public abstract class Minigame : BaseNetworkable
+	public abstract class Minigame
 	{
 
 		/// <summary>
@@ -83,11 +84,11 @@ namespace SM1Minigames
 	{
 		public static IList<Minigame> RegisteredMinigames { get; private set; } = new List<Minigame>();
 
-		public static IList<Minigame> EnabledMinigames { get; private set; } = new List<Minigame>();
+		public static Dictionary<string, float> MinigameChances { get; private set; } = new Dictionary<string, float>();
+
+		public static IList<Minigame> EnabledMinigames { get { return RegisteredMinigames.Where( x => MinigameChances[x.Name] >= 0 ).ToList(); } }
 
 		private static Minigame ActiveMinigame { get; set; } = null;
-
-		private static MinigameSelectorUI MyPanel { get; set; } = null;
 
 		[ConVar.Replicated( "minigame_chance_per_round" )]
 		public static float MinigameChance { get; set; }
@@ -95,6 +96,21 @@ namespace SM1Minigames
 		[ConVar.Replicated("minigame_final_round")]
 		public static bool AlwaysFinalRound { get; set; }
 
+		private static Minigame SelectRandomMinigame()
+		{
+			float totalFrequency = EnabledMinigames.Sum( x => MinigameChances[x.Name] );
+			float selection = Game.Random.Float( totalFrequency );
+			float frequencyTrack = 0;
+			foreach ( Minigame game in EnabledMinigames )
+			{
+				frequencyTrack = frequencyTrack + MinigameChances[game.Name];
+				if ( frequencyTrack > selection )
+				{
+					return game;
+				}
+			}
+			throw new Exception( "How did you do this?  --- Random select not functioning" );
+		}
 		public static void RegisterMinigame( Minigame game )
 		{
 			RegisteredMinigames.Add( game );
@@ -103,17 +119,22 @@ namespace SM1Minigames
 			{
 				if ( FileSystem.Data.FileExists( "minigame_config.json" ) )
 				{
-					var config = FileSystem.Data.ReadJson<Dictionary<string, bool>>( "minigame_config.json" );
-					if ( !config.ContainsKey( game.Name ) ) return;
-					if ( config[game.Name] )
+					try
 					{
-						EnabledMinigames.Add( game );
-						return;
+						var config = FileSystem.Data.ReadJson<Dictionary<string, float>>( "minigame_config.json" );
+						if ( !config.ContainsKey( game.Name ) ) { MinigameChances.Add( game.Name, -1f ); return; }
+						MinigameChances.Add( game.Name, config[game.Name] );
+					}
+					catch (JsonException) // Convert old configs to the new format
+					{
+						var config = FileSystem.Data.ReadJson<Dictionary<string, bool>>( "minigame_config.json" );
+						if ( !config.ContainsKey( game.Name ) ) { MinigameChances.Add( game.Name, -1f ); return; }
+						MinigameChances.Add( game.Name, (config[game.Name] ? 1f : -1f) );
 					}
 				}
 				else
 				{
-					EnabledMinigames.Add( game );
+					MinigameChances.Add( game.Name, 1f );
 				}
 			}
 		}
@@ -124,7 +145,7 @@ namespace SM1Minigames
 			Log.Info( "Minigames:" );
 			foreach ( var game in RegisteredMinigames )
 			{
-				Log.Info( " " + game.Name );
+				Log.Info( " " + game.Name + "; " + MinigameChances[game.Name] );
 			}
 		}
 
@@ -134,7 +155,7 @@ namespace SM1Minigames
 			Log.Info( "Minigames:" );
 			foreach ( var game in EnabledMinigames )
 			{
-				Log.Info( " " + game.Name );
+				Log.Info( " " + game.Name + "; " + MinigameChances[game.Name] );
 			}
 		}
 
@@ -169,8 +190,8 @@ namespace SM1Minigames
 			return false;
 		}
 
-		[ConCmd.Server( "minigame_enable_minigame" )]
-		public static void SetMinigameEnabled( string name )
+		[ConCmd.Server( "minigame_set_minigame_chance" )]
+		public static void SetIndividualMinigameChance( string name, float chance )
 		{
 			if ( !ValidateUser( ConsoleSystem.Caller.Pawn as TerrorTown.Player ) ) { Log.Error( "Insufficient permissions" ); return; }
 			var game = RegisteredMinigames.FirstOrDefault( x => x.Name.ToLower() == name.ToLower() );
@@ -180,44 +201,8 @@ namespace SM1Minigames
 				return;
 			}
 
-			var m_game = EnabledMinigames.FirstOrDefault( x => x.Name.ToLower() == name.ToLower() );
-			if ( m_game != null )
-			{
-				Log.Info( "Minigame was already enabled" );
-				return;
-			}
-			EnabledMinigames.Add( game );
-			SetMinigameEnabledClient( name );
+			MinigameChances[name] = Math.Clamp(chance, -1, 1);
 		}
-
-		[ConCmd.Server( "minigame_disable_minigame" )]
-		public static void SetMinigameDisabled( string name )
-		{
-			if ( !ValidateUser( ConsoleSystem.Caller.Pawn as TerrorTown.Player ) ) { Log.Error( "Insufficient permissions" ); return; }
-			var game = EnabledMinigames.FirstOrDefault( x => x.Name.ToLower() == name.ToLower() );
-			if ( game == null )
-			{
-				Log.Info( "Couldn't find enabled game " + name );
-				return;
-			}
-			EnabledMinigames.Remove( game );
-			SetMinigameDisabledClient( name );
-		}
-
-		// These two functions try to ensure that the minigame list is synced between server and client.
-		[ClientRpc]
-		public static void SetMinigameEnabledClient( string name )
-		{
-			var game = RegisteredMinigames.FirstOrDefault( x => x.Name.ToLower() == name.ToLower() );
-			EnabledMinigames.Add( game );
-		}
-		[ClientRpc]
-		public static void SetMinigameDisabledClient( string name )
-		{
-			var game = EnabledMinigames.FirstOrDefault( x => x.Name.ToLower() == name.ToLower() );
-			EnabledMinigames.Remove( game );
-		}
-
 
 		[Event( "Game.Round.Start" )]
 		public static void OnRoundStart()
@@ -225,9 +210,8 @@ namespace SM1Minigames
 			var game_chance = Math.Clamp( MinigameChance, 0f, 1f );
 			if ( Game.Random.Float() <= game_chance || (AlwaysFinalRound && MyGame.Current.RoundNumber == MyGame.RoundCount) )
 			{
-				var chosen_minigame = Game.Random.Int(EnabledMinigames.Count - 1);
-				Log.Info( "Minigame time! Initialising " + EnabledMinigames[chosen_minigame].Name );
-				ActiveMinigame = EnabledMinigames[chosen_minigame];
+				ActiveMinigame = SelectRandomMinigame();
+				Log.Info( "Minigame time! Initialising " + ActiveMinigame.Name );
 				ActiveMinigame.ToggleActive();
 				Event.Run( "minigame_announcement", ActiveMinigame.Name );
 				ActiveMinigame.RoundStart();
@@ -250,18 +234,27 @@ namespace SM1Minigames
 		//[ConCmd.Client( "minigame_testing" )]
 		//public static void test()
 		//{
-		//	Log.Info( TerrorTown.MyGame.RoundCount );
-		//	Log.Info( Entity.All.OfType<MyGame>().First().RoundNumber );
+		//	int i = 0;
+		//	int one = 0;
+		//	while(i++ < 1000 ) 
+		//	{
+		//		Minigame game = SelectRandomMinigame();
+		//		if (game.Name == "I AM SPEED")
+		//		{
+		//			one++;
+		//		}
+		//	}
+		//	Log.Info( "I am speed: " + one + "; Other: " + (1000 - one) );
 		//}
 
 		[ConCmd.Server("minigame_save_config")]
 		public static void SaveConfig()
 		{
 			if ( !ValidateUser( ConsoleSystem.Caller.Pawn as TerrorTown.Player ) ) { Log.Error( "Insufficient permissions" ); return; }
-			FileSystem.Data.WriteAllText( "minigame_config.json", SM1Utils.Lists2Json( RegisteredMinigames, EnabledMinigames ));
+			FileSystem.Data.WriteAllText( "minigame_config.json", Json.Serialize(MinigameChances));
 			FileSystem.Data.WriteAllText( "minigame_chance.txt", MinigameChance.ToString() );
 			FileSystem.Data.WriteAllText( "minigame_final_round.txt", AlwaysFinalRound.ToString() );
-			Event.Run( "minigame_full_sync", SM1Utils.Lists2Json( RegisteredMinigames, EnabledMinigames ), MinigameChance, AlwaysFinalRound );
+			Event.Run( "minigame_full_sync", Json.Serialize(MinigameChances), MinigameChance, AlwaysFinalRound );
 		}
 
 		[Event("minigame_announcement")]
@@ -274,36 +267,30 @@ namespace SM1Minigames
 				Log.Error( "Server chose a minigame that we don't have!" );
 				return;
 			}
-			var announcement = Game.RootPanel.FindRootPanel().AddChild<MinigameAnnouncement>();
+			var announcement = Game.RootPanel.AddChild<MinigameAnnouncement>();
 			announcement.SetGame(game);
 		}
 
 		[ConCmd.Client( "minigame_toggle_ui")]
 		public static void ToggleUI()
 		{
-			if (Game.IsServer)
+			var myPanel = Game.RootPanel.ChildrenOfType<MinigameSelectorUI>().FirstOrDefault();
+			if (myPanel != null)
 			{
-				Log.Info( "caller: " +  ConsoleSystem.Caller );
+				myPanel.Delete();
+				return;
 			}
-			if ( MyPanel == null )
-			{
-				MyPanel = Game.RootPanel.FindRootPanel().AddChild<MinigameSelectorUI>();
-				MyPanel.SetLocalGameList( EnabledMinigames, RegisteredMinigames );
-			}
-			else
-			{
-				MyPanel?.Delete();
-				MyPanel = null;
-			}
+			myPanel = Game.RootPanel.AddChild<MinigameSelectorUI>();
+			myPanel.SetLocalGameList( MinigameChances, RegisteredMinigames );
 		}
 
 		[Event( "minigame_full_sync" )]
 		[ClientRpc]
 		public static void FullClientSync(string MGJson, float chance, bool final_round)
 		{
-			var minigdict = Json.Deserialize<Dictionary<string, bool>>( MGJson );
+			var minigdict = Json.Deserialize<Dictionary<string, float>>( MGJson );
+			MinigameChances = minigdict;
 			RegisteredMinigames = RegisteredMinigames.Where(x => minigdict.Keys.Contains(x.Name)).ToList();
-			EnabledMinigames = RegisteredMinigames.Where( x => minigdict.Keys.Contains( x.Name ) && minigdict[x.Name] ).ToList();
 			MinigameChance = chance;
 			AlwaysFinalRound = final_round;
 		}
@@ -315,13 +302,13 @@ namespace SM1Minigames
 			if ( !ValidateUser( ConsoleSystem.Caller.Pawn as TerrorTown.Player ) ) { Log.Error( "Insufficient permissions" ); return; }
 			Game.AssertServer();
 
-			Event.Run( "minigame_full_sync", SM1Utils.Lists2Json( RegisteredMinigames, EnabledMinigames ), MinigameChance, AlwaysFinalRound );
+			Event.Run( "minigame_full_sync", Json.Serialize(MinigameChances), MinigameChance, AlwaysFinalRound );
 		}
 
 		[GameEvent.Server.ClientJoined]
 		public static void OnJoin(ClientJoinedEvent _e)
 		{
-			Event.Run( "minigame_full_sync", SM1Utils.Lists2Json( RegisteredMinigames, EnabledMinigames ), MinigameChance, AlwaysFinalRound );
+			Event.Run( "minigame_full_sync", Json.Serialize(MinigameChances), MinigameChance, AlwaysFinalRound );
 		}
 
 		// These functions implement the chat commands !minigame and !minigames
@@ -378,7 +365,7 @@ namespace SM1Minigames
 				{
 					AlwaysFinalRound = false;
 				}
-				Event.Run( "minigame_full_sync", SM1Utils.Lists2Json(RegisteredMinigames, EnabledMinigames), MinigameChance, AlwaysFinalRound );
+				Event.Run( "minigame_full_sync", Json.Serialize(MinigameChances), MinigameChance, AlwaysFinalRound );
 			}
 		}
 	}
