@@ -36,7 +36,7 @@ namespace SM1MinigamePack1
 			{
 				var ply = client.Pawn as TerrorTown.Player;
 				// Can't just add to inventory, because radar has custom functions when picked up.
-				new Radar().Touch(ply);
+				if ( ply.LifeState == LifeState.Alive ) new Radar().Touch(ply);
 			}
 		}
 	}
@@ -54,7 +54,7 @@ namespace SM1MinigamePack1
 			{
 				var ply = client.Pawn as TerrorTown.Player;
 				// Can't just add to inventory, because disguiser has custom functions when picked up.
-				new Disguiser().Touch(ply);
+				if ( ply.LifeState == LifeState.Alive ) new Disguiser().Touch(ply);
 			}
 		}
 	}
@@ -72,7 +72,7 @@ namespace SM1MinigamePack1
 			foreach ( IClient client in Game.Clients )
 			{
 				var ply = client.Pawn as TerrorTown.Player;
-				new Poltergeist().Touch(ply);
+				if (ply.LifeState == LifeState.Alive) new Poltergeist().Touch(ply);
 			}
 		}
 	}
