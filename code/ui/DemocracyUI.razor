@@ -109,6 +109,7 @@
                     @foreach(var client in Game.Clients)
                     {
                         var ply = client.Pawn as TerrorTown.Player;
+                        if (ply == null) { Log.Error("There is a fake player? Contact SmartMario1 if you see this more than once."); continue; }
                         if (ply.LifeState == LifeState.Alive)
                         {
                             <div class="button" onmousedown=@(() => CastVote(client))>
