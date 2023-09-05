@@ -27,7 +27,7 @@ namespace SM1MinigamePack1
 			base.RoundStart();
 			last_fart = 0;
 			// Divide by sqrt of connected clients to increase the amount of farts when there are a lot of players.
-			time_to_fart = Game.Random.Float( 10, 40 ) / ((float)Math.Sqrt( Game.Clients.Count ));
+			time_to_fart = Game.Random.Float( 8, 24 ) / ((float)Math.Sqrt( Game.Clients.Count ));
 		}
 
 		[GameEvent.Tick.Server]
@@ -63,7 +63,7 @@ namespace SM1MinigamePack1
 					}
 
 					last_fart = 0;
-					time_to_fart = Game.Random.Float( 10, 40 ) / ((float) Math.Sqrt( Game.Clients.Count )) ;
+					time_to_fart = Game.Random.Float( 8, 24 ) / ((float) Math.Sqrt( Game.Clients.Count )) ;
 					Particle = null;
 				}
 			}
